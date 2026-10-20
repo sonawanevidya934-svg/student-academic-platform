@@ -1,0 +1,13 @@
+---
+# docker_setup: install Docker (Ubuntu 22.04 distro package) and keep it running.
+- name: Install Docker and Python Docker SDK
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

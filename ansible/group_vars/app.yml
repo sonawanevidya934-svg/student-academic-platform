@@ -1,0 +1,51 @@
+---
+# Shared, beginner-friendly defaults for the Student Academic Platform.
+# Override with: ansible-playbook ... -e "app_image=my-registry/sap:v2"
+# Never put passwords, private keys, or AWS credentials in this file.
+
+app_name: "student-academic-platform"
+app_image: "student-academic-platform:v1.0.0"
+app_container: "student-academic-platform"
+
+# Flask/gunicorn inside the container always listens on 5000 (see Dockerfile CMD).
+app_port: 5000
+# Host-side port mapped to the container.
+app_host_port: 5000
+
+# Persistent SQLite data (matches Dockerfile SAP_DATABASE=/app/data/app.db).
+app_data_dir: "/opt/sap/data"
+# Remote build context on the EC2 host (project files are copied here, then built).
+app_src_dir: "/opt/sap/src"
+# Local project root relative to ansible/ (used to copy Dockerfile + app code).
+app_project_local_dir: "{{ playbook_dir }}/.."
+
+# Set true only if the image is pushed to a registry you can pull from.
+app_image_pull_from_registry: false
+
+# Nginx reverse proxy: public 80 -> app 127.0.0.1:5000.
+nginx_server_name: "_"
+nginx_proxy_pass: "http://127.0.0.1:5000"
+nginx_site_name: "student-academic-platform"
+
+# Health endpoint from app/routes/health.py (must return HTTP 200).
+app_health_path: "/api/health"
+app_health_url: "http://127.0.0.1:{{ app_port }}{{ app_health_path }}"
+app_health_public_url: "http://127.0.0.1{{ app_health_path }}"
+
+# Ubuntu 22.04 base packages (system_setup role).
+system_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - python3
+  - python3-pip
+
+# Docker role packages (docker.io keeps Ubuntu 22.04 beginners on the distro package).
+docker_packages:
+  - docker.io
+  - python3-docker
+
+# Nginx role packages.
+nginx_packages:
+  - nginx

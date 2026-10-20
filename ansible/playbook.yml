@@ -1,0 +1,32 @@
+---
+# Student Academic Platform - modular deployment playbook (Ubuntu 22.04).
+# Roles run in order: base packages -> Docker -> Nginx (80 -> 127.0.0.1:5000)
+# -> Flask container on 5000 -> strict health checks (fail on non-200).
+- name: Deploy Student Academic Platform
+  hosts: app
+  become: true
+  roles:
+    - role: system_setup
+    - role: docker_setup
+    - role: nginx_setup
+    - role: app_deploy
+
+  post_tasks:
+    - name: Wait for Flask app port to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ app_port }}"
+        delay: 5
+        timeout: 120
+
+    - name: Verify Flask health endpoint directly (must be HTTP 200)
+      ansible.builtin.uri:
+        url: "{{ app_health_url }}"
+        return_content: true
+        status_code: 200
+
+    - name: Verify health endpoint through Nginx proxy (must be HTTP 200)
+      ansible.builtin.uri:
+        url: "{{ app_health_public_url }}"
+        return_content: true
+        status_code: 200

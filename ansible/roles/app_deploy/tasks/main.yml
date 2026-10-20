@@ -1,0 +1,72 @@
+---
+# app_deploy: build the real Flask image from project sources, then run it.
+# Strategy: EC2 builds locally from the inspected Dockerfile (no registry needed),
+# so the container always matches app/routes/health.py + Dockerfile CMD.
+# Idempotent: copy/build/container modules only change when sources differ.
+- name: Ensure app data directory exists
+  ansible.builtin.file:
+    path: "{{ app_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure remote build directory exists
+  ansible.builtin.file:
+    path: "{{ app_src_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy Dockerfile and Python entrypoints for remote build
+  ansible.builtin.copy:
+    src: "{{ app_project_local_dir }}/{{ item }}"
+    dest: "{{ app_src_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - Dockerfile
+    - requirements.txt
+    - run.py
+    - wsgi.py
+
+- name: Copy Flask application package for remote build
+  ansible.builtin.copy:
+    src: "{{ app_project_local_dir }}/app/"
+    dest: "{{ app_src_dir }}/app/"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Pull application image from registry (only when enabled)
+  community.docker.docker_image:
+    name: "{{ app_image }}"
+    source: pull
+  when: app_image_pull_from_registry | bool
+
+- name: Build application image locally from project Dockerfile
+  community.docker.docker_image:
+    name: "{{ app_image }}"
+    build:
+      path: "{{ app_src_dir }}"
+    source: build
+  when: not (app_image_pull_from_registry | bool)
+
+- name: Run application container (port 5000, auto-restart)
+  community.docker.docker_container:
+    name: "{{ app_container }}"
+    image: "{{ app_image }}"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    ports:
+      - "{{ app_host_port }}:5000"
+    volumes:
+      - "{{ app_data_dir }}:/app/data"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000{{ app_health_path }}')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

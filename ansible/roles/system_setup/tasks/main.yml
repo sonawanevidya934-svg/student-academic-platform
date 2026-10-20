@@ -1,0 +1,11 @@
+---
+# system_setup: Ubuntu 22.04 base preparation (idempotent).
+- name: Update apt cache (Ubuntu 22.04)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install required system packages
+  ansible.builtin.apt:
+    name: "{{ system_packages }}"
+    state: present

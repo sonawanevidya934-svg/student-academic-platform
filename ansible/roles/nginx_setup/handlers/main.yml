@@ -1,0 +1,6 @@
+---
+# nginx_setup handlers: reload only when config actually changes.
+- name: Reload Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
